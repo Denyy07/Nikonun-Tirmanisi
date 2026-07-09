@@ -44,6 +44,7 @@ Dikenli engellere çarpmadan mümkün olan en yüksek skora ulaşmak için karak
 - Niko için karakter animasyonları ve akıcı geçiş efektleri.
 - Farklı görsel temalara sahip yeni haritalar.
 - Oyun ilerledikçe hızlanan tempo ve daha karmaşık tuzak türleri (zorluk eğrisi).
+- Kişisel skor tablosu.
 
 ## 🎯 İlham Kaynakları ve Özgün Farklarımız
 
