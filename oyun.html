@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Wall Jump - Nasıl Oynanır Menüsü</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body, html { 
+            width: 100%; height: 100%; 
+            background-color: #111; 
+            display: flex; justify-content: center; align-items: center;
+            overflow: hidden; touch-action: none; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+        
+        #game-wrapper {
+            position: relative; width: 100%; height: 100%; max-width: 420px; 
+            background-color: #1a1a1a; 
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8); 
+            overflow: hidden;
+        }
+        
+        #gameCanvas { display: block; width: 100%; height: 100%; }
+        
+        #hud { position: absolute; top: 40px; left: 20px; color: #58d68d; font-size: 24px; font-weight: bold; pointer-events: none; z-index: 5; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+        
+        #ui-overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            background: rgba(26, 26, 26, 0.85); z-index: 10; 
+            transition: opacity 0.3s ease-in-out; backdrop-filter: blur(4px); 
+        }
+        
+        .hidden { opacity: 0; pointer-events: none; display: none !important; }
+        
+        /* Menü Konteynerleri */
+        .menu-container {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            width: 90%; max-width: 320px; text-align: center;
+        }
+
+        h1 { color: #58d68d; margin-bottom: 30px; font-size: 36px; text-shadow: 0 4px 15px rgba(88, 214, 141, 0.3); white-space: pre-line; }
+        h2 { color: #58d68d; margin-bottom: 20px; font-size: 28px; }
+        
+        /* Nasıl Oynanır Metinleri */
+        .help-text {
+            color: #d4efdf; font-size: 16px; line-height: 1.6; margin-bottom: 30px; text-align: left;
+            background: rgba(0, 0, 0, 0.5); padding: 20px; border-radius: 12px; border: 1px solid #2ecc71;
+        }
+        .help-text p { margin-bottom: 12px; }
+        .help-text p:last-child { margin-bottom: 0; }
+        .help-text strong { color: #2ecc71; }
+
+        /* Buton Stilleri */
+        .button-group { display: flex; flex-direction: column; gap: 15px; width: 100%; }
+        
+        .btn { 
+            background: #2ecc71; color: #1a1a1a; border: none; 
+            padding: 16px 20px; font-size: 20px; font-weight: 900; 
+            border-radius: 12px; cursor: pointer; width: 100%;
+            box-shadow: 0 6px 0 #229954; transition: transform 0.1s, box-shadow 0.1s;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .btn:active { transform: translateY(6px); box-shadow: 0 0 0 #229954; }
+        
+        /* İkincil Buton (Nasıl Oynanır ve Geri) */
+        .btn-secondary {
+            background: #2c3e50; color: #ecf0f1; box-shadow: 0 6px 0 #1a252f;
+        }
+        .btn-secondary:active { box-shadow: 0 0 0 #1a252f; }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-wrapper">
+        <div id="hud">Zümrüt: <span id="score">0</span></div>
+        
+        <div id="ui-overlay">
+            
+            <div id="main-menu" class="menu-container">
+                <h1 id="screen-title">Niko'nun Tırmanışı</h1>
+                <div class="button-group">
+                    <button id="action-btn" class="btn">Başla</button>
+                    <button id="help-btn" class="btn btn-secondary">Nasıl Oynanır?</button>
+                </div>
+            </div>
+
+            <div id="help-menu" class="menu-container hidden">
+                <h2>Nasıl Oynanır?</h2>
+                <div class="help-text">
+                    <p>👆 <strong>Zıplama:</strong> Niko duvardayken ekrana dokunarak onu karşı duvara fırlatın.</p>
+                    <p>🔄 <strong>Çift Zıplama (Double Jump):</strong> Niko havadayken ekrana bir kez daha dokunarak <strong>yönünü tersine çevirin</strong> ve engellerden kaçın.</p>
+                    <p>💎 <strong>Görev:</strong> Kırmızı dikenlere çarpmadan toplayabildiğiniz kadar zümrüt toplayın!</p>
+                </div>
+                <button id="back-btn" class="btn btn-secondary">Geri Dön</button>
+            </div>
+
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script>
+        const wrapper = document.getElementById('game-wrapper');
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        
+        // UI Elementleri
+        const uiOverlay = document.getElementById('ui-overlay');
+        const mainMenu = document.getElementById('main-menu');
+        const helpMenu = document.getElementById('help-menu');
+        const screenTitle = document.getElementById('screen-title');
+        const actionBtn = document.getElementById('action-btn');
+        const helpBtn = document.getElementById('help-btn');
+        const backBtn = document.getElementById('back-btn');
+
+        // Assetler
+        const nikoUrl = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpolygon points='6,14 8,2 14,10' fill='%231f1f1f'/%3E%3Cpolygon points='26,14 24,2 18,10' fill='%231f1f1f'/%3E%3Cpolygon points='8,11 9,5 12,10' fill='%230a0a0a'/%3E%3Cpolygon points='24,11 23,5 20,10' fill='%230a0a0a'/%3E%3Ccircle cx='16' cy='18' r='10' fill='%231f1f1f'/%3E%3Ccircle cx='11' cy='17' r='4' fill='%232ecc71' opacity='0.25'/%3E%3Ccircle cx='21' cy='17' r='4' fill='%232ecc71' opacity='0.25'/%3E%3Cellipse cx='11' cy='17' rx='2' ry='3' fill='%232ecc71'/%3E%3Cellipse cx='21' cy='17' rx='2' ry='3' fill='%232ecc71'/%3E%3Cellipse cx='11' cy='17' rx='0.5' ry='2' fill='%230a0a0a'/%3E%3Cellipse cx='21' cy='17' rx='0.5' ry='2' fill='%230a0a0a'/%3E%3Cpolygon points='15,21.5 17,21.5 16,23' fill='%230a0a0a'/%3E%3C/svg%3E";
+        const emeraldUrl = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%2358d68d' opacity='0.2'/%3E%3Ccircle cx='16' cy='16' r='12' fill='%2358d68d' opacity='0.4'/%3E%3Cpolygon points='10,6 22,6 19,10 13,10' fill='%23a9dfbf'/%3E%3Cpolygon points='10,6 4,16 9,16 13,10' fill='%237dcea0'/%3E%3Cpolygon points='22,6 28,16 23,16 19,10' fill='%237dcea0'/%3E%3Cpolygon points='13,10 19,10 23,16 19,22 13,22 9,16' fill='%232ecc71'/%3E%3Cpolygon points='4,16 10,26 13,22 9,16' fill='%23229954'/%3E%3Cpolygon points='28,16 22,26 19,22 23,16' fill='%23229954'/%3E%3Cpolygon points='10,26 22,26 19,22 13,22' fill='%23145a32'/%3E%3Cpolygon points='16,12 18,14 16,16 14,14' fill='%23d4efdf' opacity='0.8'/%3E%3C/svg%3E";
+        const spikeUrl = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Crect x='28' y='2' width='4' height='28' fill='%232c3e50'/%3E%3Crect x='26' y='2' width='2' height='28' fill='%2334495e'/%3E%3Cpolygon points='26,8 2,16 26,16' fill='%23c0392b'/%3E%3Cpolygon points='26,16 2,16 26,24' fill='%23922b21'/%3E%3C/svg%3E";
+
+        const nikoImg = new Image(); nikoImg.src = nikoUrl;
+        const emeraldImg = new Image(); emeraldImg.src = emeraldUrl;
+        const spikeImg = new Image(); spikeImg.src = spikeUrl;
+
+        let gameState = 'START'; 
+
+        let screenW, screenH, dpr;
+        const wallMargin = 40; 
+        let leftWallX, rightWallX;
+        
+        let cameraY = 0; 
+        let score = 0;
+        let entities = []; 
+        let lastSpawnY = 0; 
+
+        const player = {
+            x: 0, y: 0, vx: 0, vy: 0, size: 32, wallDir: -1,
+            jumpForceX: 12, jumpForceY: -15, gravity: 0.6, slideSpeed: 2,
+            canDoubleJump: false 
+        };
+
+        function resize() {
+            screenW = wrapper.clientWidth;
+            screenH = wrapper.clientHeight;
+            
+            canvas.style.width = screenW + 'px';
+            canvas.style.height = screenH + 'px';
+            dpr = window.devicePixelRatio || 1;
+            canvas.width = screenW * dpr;
+            canvas.height = screenH * dpr;
+            ctx.scale(dpr, dpr);
+            
+            leftWallX = wallMargin;
+            rightWallX = screenW - wallMargin;
+            
+            if (gameState === 'START') {
+                player.x = leftWallX + player.size/2;
+                player.y = screenH - 100;
+            }
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // UI Menü Yönlendirmeleri
+        helpBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            mainMenu.classList.add('hidden');
+            helpMenu.classList.remove('hidden');
+        });
+
+        backBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            helpMenu.classList.add('hidden');
+            mainMenu.classList.remove('hidden');
+        });
+
+        function resetGame() {
+            score = 0;
+            scoreElement.innerText = score;
+            entities = [];
+            cameraY = 0;
+            lastSpawnY = 0;
+            
+            player.x = leftWallX + player.size/2;
+            player.y = screenH - 100;
+            player.vx = 0;
+            player.vy = 0;
+            player.wallDir = -1;
+            player.canDoubleJump = false;
+            
+            gameState = 'PLAYING';
+            uiOverlay.classList.add('hidden'); 
+        }
+
+        function gameOver() {
+            gameState = 'GAME_OVER';
+            screenTitle.innerText = `Oyun Bitti!\nToplanan Zümrüt: ${score}`;
+            actionBtn.innerText = "Tekrar Oyna";
+            helpBtn.classList.add('hidden'); // Oyun bittiğinde sadece tekrar oyna butonu kalsın
+            
+            // Menü durumunu sıfırla
+            helpMenu.classList.add('hidden');
+            mainMenu.classList.remove('hidden');
+            
+            uiOverlay.classList.remove('hidden'); 
+        }
+
+        actionBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); 
+            if (gameState === 'START' || gameState === 'GAME_OVER') {
+                resetGame();
+            }
+        });
+
+        function handleInput(e) {
+            // Sadece oyun oynanırken ve UI gizliyken input al
+            if (gameState !== 'PLAYING') return; 
+            if (e) e.preventDefault(); 
+            
+            if (player.wallDir !== 0) { 
+                player.vx = player.jumpForceX * (player.wallDir === -1 ? 1 : -1);
+                player.vy = player.jumpForceY;
+                player.wallDir = 0; 
+                player.canDoubleJump = true; 
+            } 
+            else if (player.canDoubleJump) {
+                player.vx = -player.vx; 
+                player.vy = player.jumpForceY * 0.85; 
+                player.canDoubleJump = false; 
+            }
+        }
+        wrapper.addEventListener('touchstart', handleInput, {passive: false});
+        wrapper.addEventListener('mousedown', handleInput);
+
+        function spawnEntities(minY, maxY) {
+            for (let y = minY; y > maxY; y -= (Math.random() * 200 + 150)) {
+                if (Math.random() > 0.3) {
+                    const isLeft = Math.random() > 0.5;
+                    entities.push({ type: 'spike', x: isLeft ? leftWallX : rightWallX, y: y, width: 32, height: 32, isLeft: isLeft });
+                } else {
+                    const emeraldX = leftWallX + 40 + Math.random() * (rightWallX - leftWallX - 80);
+                    entities.push({ type: 'emerald', x: emeraldX, y: y, width: 32, height: 32 });
+                }
+            }
+        }
+
+        let lastTime = 0;
+
+        function update(deltaTime) {
+            if (gameState !== 'PLAYING') return; 
+
+            if (deltaTime > 50) deltaTime = 16; 
+            const timeScale = deltaTime / 16.6; 
+
+            if (player.wallDir === 0) {
+                player.vy += player.gravity * timeScale;
+                player.x += player.vx * timeScale;
+                player.y += player.vy * timeScale;
+
+                if (player.x + player.size/2 >= rightWallX) {
+                    player.x = rightWallX - player.size/2;
+                    player.vx = 0;
+                    player.vy = 0;
+                    player.wallDir = 1;
+                    player.canDoubleJump = false; 
+                }
+                else if (player.x - player.size/2 <= leftWallX) {
+                    player.x = leftWallX + player.size/2;
+                    player.vx = 0;
+                    player.vy = 0;
+                    player.wallDir = -1;
+                    player.canDoubleJump = false;
+                }
+            } else {
+                player.vy = player.slideSpeed;
+                player.y += player.vy * timeScale;
+                
+                if (player.y > cameraY + screenH) {
+                    gameOver();
+                }
+            }
+
+            const screenTargetY = cameraY + screenH * 0.4;
+            if (player.y < screenTargetY) {
+                cameraY = player.y - screenH * 0.4;
+            }
+
+            const viewTopY = cameraY; 
+            if (viewTopY < lastSpawnY) {
+                spawnEntities(lastSpawnY, viewTopY - screenH); 
+                lastSpawnY = viewTopY - screenH;
+            }
+
+            for (let i = entities.length - 1; i >= 0; i--) {
+                let e = entities[i];
+                
+                const hitBoxShrink = 6; 
+                const hit = (
+                    player.x + (player.size/2 - hitBoxShrink) > e.x - e.width/2 &&
+                    player.x - (player.size/2 - hitBoxShrink) < e.x + e.width/2 &&
+                    player.y + (player.size/2 - hitBoxShrink) > e.y - e.height/2 &&
+                    player.y - (player.size/2 - hitBoxShrink) < e.y + e.height/2
+                );
+
+                if (hit) {
+                    if (e.type === 'emerald') {
+                        score++;
+                        scoreElement.innerText = score;
+                        entities.splice(i, 1); 
+                        continue;
+                    } else if (e.type === 'spike') {
+                        gameOver(); 
+                    }
+                }
+
+                if (e.y > cameraY + screenH + 100) {
+                    entities.splice(i, 1);
+                }
+            }
+        }
+
+        function drawTrajectory(drawYOffset) {
+            if (player.wallDir === 0 || gameState !== 'PLAYING') return; 
+
+            ctx.beginPath();
+            ctx.strokeStyle = "rgba(88, 214, 141, 0.4)"; 
+            ctx.setLineDash([6, 6]); 
+            ctx.lineWidth = 2;
+
+            let simX = player.x;
+            let simY = player.y;
+            let simVx = player.jumpForceX * (player.wallDir === -1 ? 1 : -1);
+            let simVy = player.jumpForceY;
+
+            ctx.moveTo(simX, drawYOffset(simY));
+
+            for (let i = 0; i < 25; i++) {
+                simVy += player.gravity;
+                simX += simVx;
+                simY += simVy;
+
+                if (simX + player.size/2 >= rightWallX || simX - player.size/2 <= leftWallX) {
+                    simX = Math.max(leftWallX + player.size/2, Math.min(rightWallX - player.size/2, simX));
+                    ctx.lineTo(simX, drawYOffset(simY));
+                    break; 
+                }
+                ctx.lineTo(simX, drawYOffset(simY));
+            }
+            ctx.stroke();
+            ctx.setLineDash([]); 
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, screenW, screenH);
+
+            ctx.fillStyle = '#2c3e50';
+            ctx.fillRect(leftWallX - 10, 0, 10, screenH); 
+            ctx.fillRect(rightWallX, 0, 10, screenH);     
+
+            const drawY = (worldY) => worldY - cameraY;
+
+            drawTrajectory(drawY);
+
+            entities.forEach(e => {
+                const screenY = drawY(e.y);
+                if (screenY < -50 || screenY > screenH + 50) return;
+
+                if (e.type === 'emerald' && emeraldImg.complete) {
+                    ctx.drawImage(emeraldImg, e.x - e.width/2, screenY - e.height/2, e.width, e.height);
+                } else if (e.type === 'spike' && spikeImg.complete) {
+                    ctx.save();
+                    ctx.translate(e.x, screenY);
+                    if (!e.isLeft) ctx.scale(-1, 1); 
+                    ctx.drawImage(spikeImg, -e.width/2, -e.height/2, e.width, e.height);
+                    ctx.restore();
+                }
+            });
+
+            if (nikoImg.complete) {
+                ctx.save();
+                ctx.translate(player.x, drawY(player.y));
+                
+                if (player.wallDir === 1 || (player.wallDir === 0 && player.vx < 0)) {
+                    ctx.scale(-1, 1);
+                }
+
+                ctx.drawImage(nikoImg, -player.size/2, -player.size/2, player.size, player.size);
+                
+                if (player.canDoubleJump && player.wallDir === 0) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, player.size/1.8, 0, Math.PI*2);
+                    ctx.strokeStyle = "rgba(46, 204, 113, 0.5)";
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        function gameLoop(timestamp) {
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+            update(deltaTime);
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        requestAnimationFrame((timestamp) => {
+            lastTime = timestamp;
+            gameLoop(timestamp);
+        });
+    </script>
+</body>
+</html>
