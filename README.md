@@ -121,8 +121,6 @@ bu svgleri oyunuma eklemem için js url formatına çevir
 ```
 **AI yanıtı (özet):** Üç SVG, URI-encode edilerek `data:image/svg+xml,...` formatında tek satırlık JS sabitlerine (`nikoUrl`, `emeraldUrl`, `spikeUrl`) dönüştürüldü; `new Image()` ile Canvas'a çizilebilir hale getirildi.
 
-**Yapılan düzeltmeler (adayın kendi değerlendirmesi):** Üretilen 32×32 SVG'ler doğrudan mevcut `player.size = 32` / `entities[].width/height = 32` değerleriyle örtüştüğü için boyut değişikliği gerekmedi; renk paleti (`#2ecc71`, `#58d68d` yeşil tonları) oyunun genel HUD/buton renk şemasıyla tutarlı olduğu için olduğu gibi bırakıldı.
-
 ### 5) Oyun İskeleti (Game Loop) Kurulumu
 
 **Prompt:**
@@ -185,7 +183,7 @@ jump özelliği ekle
 ```
 → AI, "açı metresi" isteğini dinamik bir **tahmini yörünge çizgisi** (`drawTrajectory`) olarak yorumladı ve havadayken ikinci dokunuşla ek bir zıplama hakkı veren `canDoubleJump` mantığını ekledi.
 
-**Adayın sorguladığı/değiştirdiği kısım:** İlk üretilen double-jump kodunda karakter havada sadece dikey (Y ekseni) yönde hafif zıplıyor, yatay yönünü (`vx`) değiştirmiyordu — bu da dikenlerden kaçmayı işlevsiz kılıyordu. Bu, aşağıdaki prompt ile AI'a geri bildirildi:
+
 
 ```
 Görsel entegrasyon ve yörünge çizgisi harika olmuş. Etrafta çıkan yeşil Double
